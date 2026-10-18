@@ -21,7 +21,9 @@ export interface ParsedSet {
 }
 
 export interface Fix {
-  /** Button label, Finnish. */
+  /** Stable id for UI translation: split = read as reps, asWeight = read as kg, remove = delete token. */
+  id: 'split' | 'asWeight' | 'remove';
+  /** Default (Finnish) button label; the UI translates by `id`. */
   label: string;
   /** Text that replaces the token range [start, end) of the line. */
   replacement: string;
@@ -35,8 +37,12 @@ export interface Issue {
   start: number;
   end: number;
   raw: string;
-  /** Question shown to the user, Finnish. */
+  /** Default question text (language neutral for split-reps, Finnish otherwise); the UI translates by `kind`. */
   message: string;
+  /** split-reps: the suggested rep counts, e.g. [10, 8]. */
+  split?: number[];
+  /** missing-reps: the weight that has no reps. */
+  kg?: number;
   fixes: Fix[];
 }
 
@@ -69,8 +75,9 @@ const BULLET = /^(\s*(?:[-•*–]\s+|\d+[.)]\s+))/;
 const NUM = /^\d+(?:[.,]\d+)?$/;
 const NUM_KG = /^(@)?(\d+(?:[.,]\d+)?)(kg)?$/i;
 const TIMES = /^(\d+(?:[.,]\d+)?)[x×*](\d+)(?:[x×*](\d+))?$/i;
-const NON_KG_UNIT = /^(km|m|min|s|sek|h|kcal|w)$/i;
-const BODYWEIGHT = /^(bw|keho|oma)$/i;
+const NON_KG_UNIT = /^(km|m|mi|min|mins|s|sec|sek|h|kcal|cal|w)$/i;
+/** Bodyweight markers, Finnish and English. */
+const BODYWEIGHT = /^(bw|keho|oma|body|bodyweight)$/i;
 
 function tokenize(line: string, from: number): Token[] {
   const tokens: Token[] = [];
@@ -177,7 +184,8 @@ export function parseLine(raw: string, prevExercise: string | null = null): Pars
         end: curKgToken.end,
         raw: curKgToken.text,
         message: `Painolle ${fmtKg(curKg)} ei toistoja`,
-        fixes: [{ label: 'Poista', replacement: '' }],
+        kg: curKg,
+        fixes: [{ id: 'remove', label: 'Poista', replacement: '' }],
       });
     }
     curKg = kg;
@@ -238,9 +246,10 @@ export function parseLine(raw: string, prevExercise: string | null = null): Pars
             end: tok.end,
             raw: tok.text,
             message: `“${tok.text}” = ${best.join(' + ')}?`,
+            split: best,
             fixes: [
-              { label: 'Kyllä', replacement: best.join(' ') },
-              { label: `Ei, ${tok.text} kg`, replacement: `${tok.text}kg` },
+              { id: 'split', label: 'Kyllä', replacement: best.join(' ') },
+              { id: 'asWeight', label: `Ei, ${tok.text} kg`, replacement: `${tok.text}kg` },
             ],
           });
           blocked = true;
@@ -307,9 +316,9 @@ export function setsByExercise(text: string): Map<string, { name: string; sets: 
 }
 
 /** How a weight must be written so the parser reads it as a weight in the middle of a line. */
-export function weightToken(kg: number): string {
+export function weightToken(kg: number, lang: 'fi' | 'en' = 'fi'): string {
   if (kg === 0) return 'bw';
-  const s = fmtKg(kg);
+  const s = fmtKg(kg, lang);
   return Number.isInteger(kg) && kg <= MAX_REPS ? `${s}kg` : s;
 }
 
@@ -317,7 +326,7 @@ export function weightToken(kg: number): string {
  * Appends one logged set to the Muistio text, the way you would type it:
  * same weight -> just the reps; new weight -> "weight reps"; new exercise -> new line.
  */
-export function appendSet(text: string, exercise: string, kg: number, reps: number): string {
+export function appendSet(text: string, exercise: string, kg: number, reps: number, lang: 'fi' | 'en' = 'fi'): string {
   const lines = text.split('\n');
   const parsed = parseText(text);
   const key = exerciseKey(exercise);
@@ -330,13 +339,13 @@ export function appendSet(text: string, exercise: string, kg: number, reps: numb
     }
   }
   if (idx < 0) {
-    const first = kg === 0 ? 'bw' : fmtKg(kg);
+    const first = kg === 0 ? 'bw' : fmtKg(kg, lang);
     const newLine = `${exercise} ${first} ${reps}`;
     while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
     return [...lines, newLine].join('\n');
   }
   const p = parsed[idx];
-  const addition = p.currentKg === kg && !p.issues.some((i) => i.kind === 'split-reps') ? `${reps}` : `${weightToken(kg)} ${reps}`;
+  const addition = p.currentKg === kg && !p.issues.some((i) => i.kind === 'split-reps') ? `${reps}` : `${weightToken(kg, lang)} ${reps}`;
   const line = lines[idx];
   const hashAt = line.search(/#|\/\//);
   lines[idx] =

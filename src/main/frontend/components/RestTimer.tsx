@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { useT } from 'Frontend/lib/i18n';
 import { stopRest, useAppState } from 'Frontend/lib/store';
 
 /** Big rest timer (top right of Tänään). Survives reloads: the start time is stored. Tap to stop. */
 export default function RestTimer() {
   const { rest } = useAppState();
+  const { t } = useT();
   const [now, setNow] = useState(Date.now());
   const buzzed = useRef<number | null>(null);
   useEffect(() => {
@@ -15,7 +17,7 @@ export default function RestTimer() {
     return (
       <div className="timer idle">
         <b>–:––</b>
-        <span>LEPO</span>
+        <span>{t('timer.rest')}</span>
       </div>
     );
   }
@@ -27,9 +29,9 @@ export default function RestTimer() {
   const abs = Math.abs(left);
   const txt = `${left < 0 ? '+' : ''}${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')}`;
   return (
-    <button className={`timer${left <= 0 ? ' over' : ''}`} onClick={stopRest} title="Lopeta lepo">
+    <button className={`timer${left <= 0 ? ' over' : ''}`} onClick={stopRest} title={t('timer.stop')}>
       <b>{txt}</b>
-      <span>{left <= 0 ? 'VALMIS' : 'LEPO'}</span>
+      <span>{left <= 0 ? t('timer.done') : t('timer.rest')}</span>
     </button>
   );
 }

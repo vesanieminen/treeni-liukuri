@@ -1,15 +1,17 @@
 import '../app.css';
 import { Suspense } from 'react';
 import { NavLink, Outlet } from 'react-router';
+import { useT, type MsgKey } from 'Frontend/lib/i18n';
 
-const TABS = [
-  { to: '/', label: 'Tänään', ic: 'circ' },
-  { to: '/muistio', label: 'Muistio', ic: 'lines' },
-  { to: '/kehitys', label: 'Kehitys', ic: 'bar' },
-  { to: '/ohjelma', label: 'Ohjelma', ic: '' },
+const TABS: { to: string; label: MsgKey; ic: string }[] = [
+  { to: '/', label: 'tab.today', ic: 'circ' },
+  { to: '/muistio', label: 'tab.log', ic: 'lines' },
+  { to: '/kehitys', label: 'tab.progress', ic: 'bar' },
+  { to: '/ohjelma', label: 'tab.program', ic: '' },
 ];
 
 export default function MainLayout() {
+  const { t } = useT();
   return (
     <div className="app">
       <main className="scroll">
@@ -18,10 +20,10 @@ export default function MainLayout() {
         </Suspense>
       </main>
       <nav className="tabbar">
-        {TABS.map((t) => (
-          <NavLink key={t.to} to={t.to} end className={({ isActive }) => `tab${isActive ? ' active' : ''}`}>
-            <div className={`ic ${t.ic}`}></div>
-            {t.label}
+        {TABS.map((x) => (
+          <NavLink key={x.to} to={x.to} end className={({ isActive }) => `tab${isActive ? ' active' : ''}`}>
+            <div className={`ic ${x.ic}`}></div>
+            {t(x.label)}
           </NavLink>
         ))}
       </nav>

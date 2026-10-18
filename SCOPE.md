@@ -2,7 +2,7 @@
 
 > Valmentajan ohjelma sisään, sarjat ulos — yksi näkymä salilla.
 
-Training-only mobile PWA for Vesa (meals and weight are out of scope). Finnish UI.
+Training-only mobile PWA for Vesa (meals and weight are out of scope). UI in English and Finnish.
 Design: Visionary's mockups in `/workspace/valmennus-app/` (5 screens, 390×844).
 
 ## Stack decision
@@ -36,6 +36,8 @@ Design: Visionary's mockups in `/workspace/valmennus-app/` (5 screens, 390×844)
 - [x] Local storage (localStorage, `treeni-liukuri/v1`), demo data on first run (clear with one tap)
 - [x] Export: coach text, CSV with the Treenipäiväkirja columns (today / all sessions)
 - [x] PWA manifest + service worker (production build)
+- [x] English + Finnish UI (`lib/i18n.ts`): browser locale on first launch, manual choice saved in
+      localStorage; locale-aware numbers/dates; localized demo data, coach text and CSV headers
 - [ ] Real-device offline test (install to the home screen on Vesa's phone, airplane mode)
 
 ### Phase 2
@@ -70,8 +72,21 @@ separate set list. They append to the text the way you would type it (`appendSet
 just reps; new weight → `weight reps`; new exercise → new line). So the Muistio, the coach text
 and the CSV can never disagree.
 
-CSV columns (Treenipäiväkirja): `date;ab_week;workout_type;exercise;set;reps;kg;notes`, one row per
-set, `;` separator, decimal comma, UTF-8 BOM. `notes` carries `lämmittely` and the line's comment.
+CSV columns (Treenipäiväkirja order): date, A/B week, workout type, exercise, set, reps, kg, notes.
+One row per set, UTF-8 BOM. Finnish export: Finnish headers, `;`, decimal comma. English export:
+English headers, `,`, decimal point. `notes` carries `lämmittely` / `warm-up` and the line's comment.
+
+## Localization
+
+- `lib/i18n.ts`: fi/en dictionaries (same keys, enforced by a test), `{param}` interpolation,
+  `fmtKg` per language, weekday/date labels. No i18n library.
+- Language = saved choice (`treeni-liukuri/lang`) → otherwise `navigator.languages[0]` (`fi*` → fi,
+  else en). The switch is in Program (Ohjelma).
+- Parser input is language-neutral: decimal comma and point both work, English names/notes,
+  `bw`/`body`/`bodyweight`, `rest 90 s`, `Warm-up:`, `No …`/`Avoid …` warnings, `19 Oct` /
+  `10/19` dates. Parser issues carry ids (`split`, `asWeight`, `remove`) and the UI translates them.
+- Data isn't translated: exercise names are whatever was typed or pasted. Only the demo data and the
+  default rotation names follow the language.
 
 ## Parser grammar
 

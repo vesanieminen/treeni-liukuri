@@ -2,28 +2,56 @@
 
 Valmentajan ohjelma sisään, sarjat ulos — yksi näkymä salilla.
 
-Training log PWA (Finnish UI). Vaadin 25 + Hilla (React) + Spring Boot 4, Java 21. All training
-data stays in the browser (localStorage), so the installed app works offline. See
+Training log PWA in English and Finnish. Vaadin 25 + Hilla (React) + Spring Boot 4, Java 21. All
+training data stays in the browser (localStorage), so the installed app works offline. See
 [SCOPE.md](SCOPE.md) for phases, data model, parser grammar and open questions.
-
-![Treeni Liukuri screens: Tänään, Sarja, Muistio, Kehitys, Ohjelma](docs/screens/overview.png)
-
-<sub>Screenshots of the running app (production build, built-in demo data).</sub>
 
 ## Screens
 
 <table>
   <tr>
-    <td align="center" width="33%"><img src="docs/screens/tanaan.png" width="240" alt="Tänään"><br><b>Tänään</b><br>Today's exercises with target and last result, set dots, rest timer, and one-tap <i>Sama kuin viimeksi</i>.</td>
-    <td align="center" width="33%"><img src="docs/screens/sarja.png" width="240" alt="Sarja"><br><b>Sarja</b><br>Bottom sheet: weight ±2,5 kg, reps grid, last 3 sessions, <i>Kirjaa sarja · lepo alkaa</i>.</td>
-    <td align="center" width="33%"><img src="docs/screens/muistio-flag.png" width="240" alt="Muistio"><br><b>Muistio</b><br>Type like Notes (<code>Kyykky 80 9 8 10</code>), parsed live into weight × reps chips, with one-tap fixes.</td>
+    <td align="center" width="33%"><img src="docs/screens/tanaan.png" width="240" alt="Today"><br><b>Today</b> (Tänään)<br>Today's exercises with target and last result, set dots, rest timer, and one-tap <i>Same as last time</i>.</td>
+    <td align="center" width="33%"><img src="docs/screens/sarja.png" width="240" alt="Set sheet"><br><b>Set</b> (Sarja)<br>Bottom sheet: weight ±2.5 kg, reps grid, last 3 sessions, <i>Log set · start rest</i>.</td>
+    <td align="center" width="33%"><img src="docs/screens/muistio-flag.png" width="240" alt="Log"><br><b>Log</b> (Muistio)<br>Type like Notes (<code>Squat 80 9 8 10</code>), parsed live into weight × reps chips, with one-tap fixes.</td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screens/kehitys.png" width="240" alt="Kehitys"><br><b>Kehitys</b><br>5-week training rhythm and trend lines for the main lifts with the next target.</td>
-    <td align="center"><img src="docs/screens/ohjelma.png" width="240" alt="Ohjelma"><br><b>Ohjelma</b><br><i>Miltä tuntuu tänään?</i>, this week's plan, and the progression rules.</td>
+    <td align="center"><img src="docs/screens/kehitys.png" width="240" alt="Progress"><br><b>Progress</b> (Kehitys)<br>5-week training rhythm and trend lines for the main lifts with the next target.</td>
+    <td align="center"><img src="docs/screens/ohjelma.png" width="240" alt="Program"><br><b>Program</b> (Ohjelma)<br><i>How do you feel today?</i>, this week's plan, the progression rules, and the language switch.</td>
     <td align="center" valign="middle"><b>Offline-first PWA</b><br>Install from the browser; all data stays on the device. Export as text or CSV.</td>
   </tr>
 </table>
+
+<sub>Screenshots of the production build with the built-in demo data.</sub>
+
+### Suomeksi / Finnish
+
+The app is fully available in Finnish. Finnish screenshots:
+[Tänään](docs/screens/fi/tanaan.png) ·
+[Sarja](docs/screens/fi/sarja.png) ·
+[Muistio](docs/screens/fi/muistio-flag.png) ·
+[Kehitys](docs/screens/fi/kehitys.png) ·
+[Ohjelma](docs/screens/fi/ohjelma.png)
+
+<p>
+  <img src="docs/screens/fi/tanaan.png" width="120" alt="Tänään">
+  <img src="docs/screens/fi/sarja.png" width="120" alt="Sarja">
+  <img src="docs/screens/fi/muistio-flag.png" width="120" alt="Muistio">
+  <img src="docs/screens/fi/kehitys.png" width="120" alt="Kehitys">
+  <img src="docs/screens/fi/ohjelma.png" width="120" alt="Ohjelma">
+</p>
+
+## Languages
+
+- English and Finnish UI (`src/main/frontend/lib/i18n.ts`, no extra dependencies).
+- First launch follows the browser locale (`fi*` → Finnish, anything else → English). A manual
+  choice in **Program → Language** is saved in localStorage and wins from then on.
+- Numbers and dates follow the language (fi `82,5` · `Ke 14.10`, en `82.5` · `Wed 14 Oct`). The
+  log parser accepts both `82,5` and `82.5` in either language.
+- The coach text and CSV export follow the language. CSV keeps the Treenipäiväkirja column order:
+  fi `päivämäärä;ab_viikko;treenityyppi;liike;sarja;toistot;kg;muistiinpanot` (`;`, decimal comma),
+  en `date,ab_week,workout_type,exercise,set,reps,kg,notes` (`,`, decimal point).
+- Demo data is localized and is re-created when you switch language. Your own entries are never
+  translated.
 
 ## Requirements
 - JDK 21+ (Maven comes with `./mvnw`)
@@ -37,7 +65,7 @@ data stays in the browser (localStorage), so the installed app works offline. Se
 
 ## Tests
 ```bash
-npm install && npx vitest run      # parser, plan paste, rules, export (35 tests)
+npm install && npx vitest run      # parser, plan paste, rules, export, i18n (54 tests)
 ./mvnw test                        # same tests from Maven (skip with -DskipTests)
 ```
 
@@ -70,8 +98,8 @@ docker run -p 8080:8080 treeni-liukuri
 inactivity (~1 min cold start for a Spring Boot app).
 
 ## Data & privacy
-Nothing leaves the device unless you tap **Lähetä Valmentajalle** (share/clipboard) or download a
-CSV. There is no Google Sheets sync. That's a later, opt-in phase (the Treenipäiväkirja sheet
+Nothing leaves the device unless you tap **Send to coach** (Lähetä Valmentajalle; share/clipboard)
+or download a CSV. There is no Google Sheets sync. That's a later, opt-in phase (the Treenipäiväkirja sheet
 belongs to Valmentaja).
 
 ## License

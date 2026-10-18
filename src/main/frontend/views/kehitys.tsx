@@ -1,23 +1,20 @@
 import { ViewConfig } from '@vaadin/hilla-file-router/types.js';
-import { fmtKg } from 'Frontend/lib/num';
+import { MAIN_LIFTS } from 'Frontend/lib/demo';
+import { shortDate, useT, weekHeader } from 'Frontend/lib/i18n';
 import { isoWeek, liftTrends, mondayOf, sparkline } from 'Frontend/lib/progress';
 import { addDays } from 'Frontend/lib/rules';
 import { today, useAppState } from 'Frontend/lib/store';
 
-export const config: ViewConfig = { title: 'Kehitys' };
+export const config: ViewConfig = { title: 'Treeni Liukuri' };
 
-const DAYS = ['ma', 'ti', 'ke', 'to', 'pe', 'la', 'su'];
-const MAIN_LIFTS = ['Mave', 'Vinopenkki KP', 'Pystypunnerrus KP', 'Kyykky'];
-const dm = (iso: string) => {
-  const [, m, d] = iso.split('-').map(Number);
-  return `${d}.${m}.`;
-};
 
 export default function KehitysView() {
   const s = useAppState();
-  const t = today();
-  const start = addDays(mondayOf(t), -28);
-  const inRange = s.sessions.filter((x) => x.date >= start && x.date <= t);
+  const { t, lang, kg: fmtKg } = useT();
+  const DAYS = weekHeader(lang);
+  const today_ = today();
+  const start = addDays(mondayOf(today_), -28);
+  const inRange = s.sessions.filter((x) => x.date >= start && x.date <= today_);
   const trained = inRange.filter((x) => !x.skipped && x.text.trim());
   const restMoved = inRange.filter((x) => x.skipped || x.movedFrom).length;
   const trends = liftTrends(s.sessions, MAIN_LIFTS);
@@ -28,24 +25,24 @@ export default function KehitysView() {
   return (
     <>
       <div className="eyebrow">
-        {dm(start)} – {dm(t)}
+        {shortDate(start, lang)} – {shortDate(today_, lang)}
       </div>
-      <h1>Kehitys</h1>
+      <h1>{t('progress.title')}</h1>
       <div className="stats">
         <div className="card">
           <b>{trained.length}</b>
-          <span>treeniä</span>
+          <span>{t('progress.workouts')}</span>
         </div>
         <div className="card">
           <b>{restMoved}</b>
-          <span>lepoa / siirtoa</span>
+          <span>{t('progress.restMoved')}</span>
         </div>
         <div className="card">
           <b>{best && best.delta > 0 ? `+${fmtKg(best.delta)}` : '–'}</b>
-          <span>{best ? `kg · ${best.name.toLowerCase()}` : 'kg'}</span>
+          <span>{best ? t('progress.kgIn', { name: best.name.toLowerCase() }) : 'kg'}</span>
         </div>
       </div>
-      <div className="sec">Rytmi</div>
+      <div className="sec">{t('progress.rhythm')}</div>
       <div className="card kgrid">
         <div className="wk hd">
           <span></span>
@@ -57,14 +54,14 @@ export default function KehitysView() {
           const mon = addDays(start, w * 7);
           return (
             <div className="wk" key={w}>
-              <span className="wl">vk {isoWeek(mon)}</span>
+              <span className="wl">{t('progress.week', { n: isoWeek(mon) })}</span>
               {DAYS.map((_, d) => {
                 const date = addDays(mon, d);
                 const xs = byDate.get(date) ?? [];
                 const done = xs.find((x) => !x.skipped && x.text.trim());
-                const cls = done ? (done.movedFrom ? 'm' : /ala/i.test(done.title) ? 'a' : 'y') : xs.some((x) => x.skipped) ? 's' : '';
+                const cls = done ? (done.movedFrom ? 'm' : /^(ala|lower)/i.test(done.title) ? 'a' : 'y') : xs.some((x) => x.skipped) ? 's' : '';
                 return (
-                  <span key={d} className={`c ${cls}${date === t ? ' t' : ''}`} title={done ? `${date} ${done.title}` : date}>
+                  <span key={d} className={`c ${cls}${date === today_ ? ' t' : ''}`} title={done ? `${date} ${done.title}` : date}>
                     {cls === 's' ? '–' : cls === 'm' ? '→' : ''}
                   </span>
                 );
@@ -73,14 +70,14 @@ export default function KehitysView() {
           );
         })}
         <div className="leg">
-          <span><i style={{ background: 'var(--acc)' }} />Alakroppa</span>
-          <span><i style={{ background: '#7FAE9D' }} />Yläkroppa</span>
-          <span><i style={{ border: '1.5px dashed #D6B48A' }} />Lepo / skip</span>
-          <span><i style={{ background: 'var(--amber2)' }} />Siirretty</span>
+          <span><i style={{ background: 'var(--acc)' }} />{t('progress.lower')}</span>
+          <span><i style={{ background: '#7FAE9D' }} />{t('progress.upper')}</span>
+          <span><i style={{ border: '1.5px dashed #D6B48A' }} />{t('progress.restSkip')}</span>
+          <span><i style={{ background: 'var(--amber2)' }} />{t('progress.moved')}</span>
         </div>
       </div>
-      <div className="sec">Nousut</div>
-      {trends.length === 0 && <div className="card empty">Kirjaa vähintään kaksi treeniä, niin nousut näkyvät tässä.</div>}
+      <div className="sec">{t('progress.gains')}</div>
+      {trends.length === 0 && <div className="card empty">{t('progress.empty')}</div>}
       <div className="lifts">
         {trends.map((tr) => {
           const vals = tr.points.map((p) => p.kg);
@@ -96,7 +93,7 @@ export default function KehitysView() {
                 </div>
                 {tr.next?.kg != null && (
                   <div className="nx">
-                    Seuraava: {fmtKg(tr.next.kg)} × {tr.next.reps}
+                    {t('progress.next', { kg: fmtKg(tr.next.kg), reps: tr.next.reps })}
                   </div>
                 )}
               </div>

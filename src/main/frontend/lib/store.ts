@@ -6,7 +6,8 @@ import { useSyncExternalStore } from 'react';
 import { appendSet } from './parser';
 import type { Plan } from './plan';
 import { addDays, isoDate } from './rules';
-import { demoState } from './demo';
+import { DEMO_NAMES, demoState } from './demo';
+import { getLang, setLang, translate, type Lang } from './i18n';
 
 export type Readiness = 'hyva' | 'vasynyt' | 'skip';
 
@@ -48,7 +49,7 @@ function load(): AppState {
   } catch {
     /* corrupted storage -> start fresh */
   }
-  return demoState(isoDate(new Date()));
+  return demoState(isoDate(new Date()), getLang());
 }
 
 function save() {
@@ -96,7 +97,7 @@ export function nextTitle(s: AppState, beforeDate = today()): string {
   const last = past[past.length - 1]?.title;
   const rot = s.schedule.rotation;
   const i = last ? rot.indexOf(last) : -1;
-  return rot[(i + 1) % rot.length] ?? 'Treeni';
+  return rot[(i + 1) % rot.length] ?? translate(getLang(), 'title.default');
 }
 
 /** Today's session, created lazily. */
@@ -115,7 +116,7 @@ export function updateToday(fn: (x: Session) => Session) {
 }
 
 export function logSet(exercise: string, kg: number, reps: number, restSec: number) {
-  updateToday((x) => ({ ...x, text: appendSet(x.text, exercise, kg, reps) }));
+  updateToday((x) => ({ ...x, text: appendSet(x.text, exercise, kg, reps, getLang()) }));
   setState((s) => ({ ...s, rest: { startedAt: Date.now(), seconds: restSec, exercise } }));
 }
 
@@ -131,9 +132,36 @@ export function history(s: AppState, date = today()): Session[] {
 export function resetAll(withDemo: boolean) {
   setState(() =>
     withDemo
-      ? demoState(today())
-      : { version: 1, sessions: [], rest: null, schedule: { weekdays: [1, 3, 5], rotation: ['Yläkroppa', 'Alakroppa'] }, demo: false },
+      ? demoState(today(), getLang())
+      : {
+          version: 1,
+          sessions: [],
+          rest: null,
+          schedule: { weekdays: [1, 3, 5], rotation: [DEMO_NAMES[getLang()].upper, DEMO_NAMES[getLang()].lower] },
+          demo: false,
+        },
   );
+}
+
+/**
+ * Switches the UI language (saved, overrides the browser locale from now on).
+ * Demo data follows the language: it is re-created in the new language. Real entries are never
+ * translated or replaced; only the default rotation names are swapped.
+ */
+export function changeLanguage(next: Lang) {
+  const prev = getLang();
+  setLang(next);
+  if (next === prev) return;
+  if (state.demo) {
+    setState(() => demoState(today(), next));
+    return;
+  }
+  const from = DEMO_NAMES[prev];
+  const to = DEMO_NAMES[next];
+  const rot = state.schedule.rotation;
+  if (rot.length === 2 && rot[0] === from.upper && rot[1] === from.lower) {
+    setState((st) => ({ ...st, schedule: { ...st.schedule, rotation: [to.upper, to.lower] } }));
+  }
 }
 
 export { addDays };

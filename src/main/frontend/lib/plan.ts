@@ -1,5 +1,5 @@
 /**
- * Valmentajan lista -> today's plan. Pure module.
+ * Valmentajan lista / coach's plan -> today's plan. Pure module; Finnish and English input.
  *
  * Accepts the coach's 7:15 message pasted as text, e.g.
  *   Ma 19.10 Yläkroppa 8:30–9:30
@@ -38,9 +38,18 @@ export const DEFAULT_REST_SEC = 90;
 const SETS_REPS = /(\d+)\s*[x×*]\s*(\d+)(?:\s*[–-]\s*(\d+))?/i;
 const KG = /(\d+(?:[.,]\d+)?)\s*(?:(?:→|->|>)\s*(\d+(?:[.,]\d+)?))?\s*kg/i;
 const BARE_NUM = /(?:^|\s)(\d+(?:[.,]\d+)?)(?:\s*(?:→|->|>)\s*(\d+(?:[.,]\d+)?))?(?=\s|$)/;
-const REST = /lepo\s*(\d+)\s*(s|sek|min)?/i;
-const DATE = /\b(ma|ti|ke|to|pe|la|su)?\s*\d{1,2}\.\d{1,2}\.?(?:\d{2,4})?/i;
-const TIME = /\d{1,2}[:.]\d{2}\s*[–-]\s*\d{1,2}[:.]\d{2}|\bklo\s*\d{1,2}(?:[:.]\d{2})?/i;
+const REST = /(?:lepo|rest)\s*:?\s*(\d+)\s*(s|sec|sek|min)?/i;
+const WD = '(?:ma|ti|ke|to|pe|la|su|mon|tue|wed|thu|fri|sat|sun)[a-z]*';
+const MON_EN = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*';
+/** 19.10. / 19.10.2026 / 10/19 / 19 Oct / Oct 19, optionally with a fi/en weekday in front. */
+const DATE = new RegExp(
+  `\\b(?:${WD}\\.?,?\\s*)?(?:\\d{1,2}\\.\\d{1,2}\\.?(?:\\d{2,4})?|\\d{1,2}/\\d{1,2}(?:/\\d{2,4})?|\\d{1,2}\\s+${MON_EN}|${MON_EN}\\s+\\d{1,2})`,
+  'i',
+);
+const TIME = /\d{1,2}[:.]\d{2}\s*[–-]\s*\d{1,2}[:.]\d{2}|\b(?:klo|at)\s*\d{1,2}(?:[:.]\d{2})?/i;
+/** Lines that are warnings/instructions rather than a title: "Ei …", "No flat bench", "Avoid …". */
+const WARNING_START = /^(ei|älä|vältä|no|avoid|don'?t|do not|skip|!)\b/i;
+const WARMUP_START = /^(lämpö|lämmittely|alkulämpö|warm[\s-]?up)/i;
 
 function stripBullet(line: string): string {
   return line.replace(/^\s*(?:[-•*–]\s+|\d+[.)]\s+)/, '').trim();
@@ -89,14 +98,14 @@ export function parsePlan(text: string): Plan {
   for (const rawLine of text.split('\n')) {
     const line = stripBullet(rawLine);
     if (!line) continue;
-    if (/^(lämpö|lämmittely|alkulämpö)/i.test(line)) {
+    if (WARMUP_START.test(line)) {
       plan.warmup = line.replace(/^[^:]*:\s*/, '').trim() || line;
       continue;
     }
     if (!plan.items.length && !plan.title && (DATE.test(line) || TIME.test(line) || !/\d/.test(line))) {
       const when = [line.match(DATE)?.[0], line.match(TIME)?.[0]].filter(Boolean).join(' · ');
       const title = line.replace(DATE, ' ').replace(TIME, ' ').replace(/[·,|–-]/g, ' ').replace(/\s{2,}/g, ' ').trim();
-      if (title && !/^(ei|älä|vältä|!)/i.test(title)) {
+      if (title && !WARNING_START.test(title)) {
         plan.title = title;
         plan.when = when.trim();
         continue;

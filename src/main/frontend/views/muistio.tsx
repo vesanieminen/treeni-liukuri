@@ -2,12 +2,14 @@ import { ViewConfig } from '@vaadin/hilla-file-router/types.js';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import PlanSheet from 'Frontend/components/PlanSheet';
-import { fiDayLabel, toCoachText, toCsv } from 'Frontend/lib/export';
-import { fmtKg } from 'Frontend/lib/num';
+import { toCoachText, toCsv } from 'Frontend/lib/export';
+import { useT, type MsgKey } from 'Frontend/lib/i18n';
 import { applyFix, parseText } from 'Frontend/lib/parser';
 import { getState, todaySession, updateToday, useAppState } from 'Frontend/lib/store';
 
-export const config: ViewConfig = { title: 'Muistio' };
+export const config: ViewConfig = { title: 'Treeni Liukuri' };
+
+const FIX_KEY: Record<string, MsgKey> = { split: 'issue.split', asWeight: 'issue.asWeight', remove: 'issue.remove' };
 
 function download(name: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob(['\uFEFF' + content], { type }));
@@ -18,6 +20,7 @@ function download(name: string, content: string, type: string) {
 
 export default function MuistioView() {
   const s = useAppState();
+  const { t, lang, kg, day } = useT();
   const sess = todaySession(s);
   const stored = sess.text.length ? sess.text.split('\n') : [''];
   // Always keep an empty line at the end to type into, like Notes.
@@ -47,28 +50,27 @@ export default function MuistioView() {
   const setLines = (next: string[]) => updateToday((x) => ({ ...x, text: next.join('\n').replace(/\n+$/, '') }));
 
   const send = async () => {
-    const text = toCoachText(sess);
+    const text = toCoachText(sess, lang);
     try {
       if (navigator.share) {
         await navigator.share({ text });
         return;
       }
       await navigator.clipboard.writeText(text);
-      setToast('Kopioitu – liitä Valmentajan chattiin');
+      setToast(t('log.copied'));
     } catch (e) {
-      if ((e as Error)?.name !== 'AbortError') setToast('Kopiointi ei onnistunut');
+      if ((e as Error)?.name !== 'AbortError') setToast(t('log.copyFailed'));
     }
   };
 
   return (
     <>
       <div className="eyebrow">
-        {fiDayLabel(sess.date)} · {sess.title}
+        {day(sess.date)} · {sess.title}
       </div>
-      <h1>Muistio</h1>
+      <h1>{t('log.title')}</h1>
       <div className="sub">
-        Kirjoita kuten Notesiin: <span className="mono" style={{ color: 'var(--ink)' }}>liike paino toistot…</span> Uusi paino
-        kesken rivin vaihtaa painon.
+        {t('log.sub1')} <span className="mono" style={{ color: 'var(--ink)' }}>{t('log.subMono')}</span> {t('log.sub2')}
       </div>
       <div className="card pad">
         {lines.map((line, i) => {
@@ -84,8 +86,8 @@ export default function MuistioView() {
                 inputMode="text"
                 autoCapitalize="sentences"
                 spellCheck={false}
-                placeholder={i === lines.length - 1 ? (i === 0 ? 'Kyykky 80 9 8 10' : '+ uusi rivi') : ''}
-                aria-label={`Rivi ${i + 1}`}
+                placeholder={i === lines.length - 1 ? (i === 0 ? t('log.placeholder') : t('log.newLine')) : ''}
+                aria-label={t('log.line', { n: i + 1 })}
                 onChange={(e) => {
                   const next = [...lines];
                   next[i] = e.target.value;
@@ -130,20 +132,20 @@ export default function MuistioView() {
                 <div className="par">
                   {p.continuation && p.exercise && <span className="note">↳ {p.exercise}</span>}
                   {p.sets.map((x, j) => (
-                    <span key={j} className={x.warmup ? 'w' : ''} title={x.warmup ? 'lämmittely' : undefined}>
-                      {x.kg === 0 ? 'bw' : fmtKg(x.kg)} × {x.reps}
+                    <span key={j} className={x.warmup ? 'w' : ''} title={x.warmup ? t('log.warmupTitle') : undefined}>
+                      {x.kg === 0 ? 'bw' : kg(x.kg)} × {x.reps}
                     </span>
                   ))}
-                  {p.pendingKg !== null && <span className="p">{fmtKg(p.pendingKg)} × ?</span>}
+                  {p.pendingKg !== null && <span className="p">{kg(p.pendingKg)} × ?</span>}
                   {p.note && <span className="note">{p.note}</span>}
                 </div>
               )}
               {p.issues.map((iss, j) => (
                 <div className="q" key={j}>
-                  {iss.message}
+                  {iss.kind === 'missing-reps' && iss.kg !== undefined ? t('issue.missingReps', { kg: kg(iss.kg) }) : iss.message}
                   {iss.fixes.map((f, k) => (
                     <button
-                      key={f.label}
+                      key={f.id}
                       className={k ? 'alt' : ''}
                       onClick={() => {
                         const next = [...lines];
@@ -151,7 +153,7 @@ export default function MuistioView() {
                         setLines(next);
                       }}
                     >
-                      {f.label}
+                      {FIX_KEY[f.id] ? t(FIX_KEY[f.id], { raw: iss.raw }) : f.label}
                     </button>
                   ))}
                 </div>
@@ -162,21 +164,25 @@ export default function MuistioView() {
       </div>
       <div className="acts">
         <button className="btn s" onClick={() => setPlanOpen(true)}>
-          ⇣ Liitä Valmentajan lista
+          {t('log.pastePlan')}
         </button>
         <button className="btn p" onClick={send}>
-          Lähetä Valmentajalle ⇡
+          {t('log.send')}
         </button>
       </div>
       <div className="foot">
-        Teksti jaetaan / kopioidaan Valmentajan chattiin ·{' '}
-        <button onClick={() => download(`treeni-${sess.date}.csv`, toCsv([sess]), 'text/csv')}>CSV tänään</button> ·{' '}
+        {t('log.foot')} ·{' '}
+        <button onClick={() => download(`treeni-${sess.date}.csv`, toCsv([sess], { lang }), 'text/csv')}>{t('log.csvToday')}</button> ·{' '}
         <button
           onClick={() =>
-            download('treenipaivakirja.csv', toCsv(getState().sessions.filter((x) => !x.skipped && x.text)), 'text/csv')
+            download(
+              lang === 'fi' ? 'treenipaivakirja.csv' : 'training-log.csv',
+              toCsv(getState().sessions.filter((x) => !x.skipped && x.text), { lang }),
+              'text/csv',
+            )
           }
         >
-          CSV kaikki
+          {t('log.csvAll')}
         </button>
       </div>
       {planOpen && (
