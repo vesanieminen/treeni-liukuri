@@ -1,0 +1,9 @@
+# Render Blueprint (alternative host). New > Blueprint > pick the repo.
+services:
+  - type: web
+    name: treeni-liukuri
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
